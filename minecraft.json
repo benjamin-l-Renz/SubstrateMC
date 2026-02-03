@@ -5,6 +5,18 @@
         "url": "https://piston-data.mojang.com/v1/objects/64bb6d763bed0a9f1d632ec347938594144943ed/server.jar",
         "java_version": "21"
       }
+    },
+    "1.21.10": {
+      "vanilla": {
+        "url": "https://piston-data.mojang.com/v1/objects/95495a7f485eedd84ce928cef5e223b757d2f764/server.jar",
+        "java_version": "21"
+      }
+    },
+    "1.21.9": {
+      "vanilla": {
+        "url": "",
+        "java_version": "21"
+      }
     }
   }
 }
