@@ -1,6 +1,6 @@
 # ElectronMC
 
-> ⚠️ **ElectronMC is under active development and not yet ready for production use.**
+> **ElectronMC is under active development and not yet ready for production use.**
 
 **ElectronMC** is a high-performance, lightweight Minecraft server interface written entirely in **Rust**.
 It exposes a modern and clean **HTTP and WebSocket API** that lets you manage Minecraft servers efficiently — **in real time**.
