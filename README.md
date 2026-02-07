@@ -11,7 +11,7 @@
 - [Features](#features)
 - [Why SubstrateMC](#why-substratemc)
 - [Who is SubstrateMC for](#who-is-substratemc-for)
-- [Why not manual manage servers ?](#why-not-manual-manage-servers-?)
+- [Why not manual manage servers ?](#why-not-manual-manage-servers)
 - [Quick Start](#quick-start)
 - [Contributing](#contributing)
 
