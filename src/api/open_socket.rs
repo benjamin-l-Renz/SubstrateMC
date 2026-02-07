@@ -20,7 +20,7 @@ pub async fn ws_control(
     body: Payload,
     servers: web::Data<SharedServers>,
 ) -> Result<HttpResponse, ApiError> {
-    let (res, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
+    let (res, _session, mut msg_stream) = actix_ws::handle(&req, body)?;
 
     let servers = servers.get_ref().clone();
 
@@ -97,7 +97,7 @@ pub async fn ws_control(
                             }
                         },
 
-                        ControlMessage::GetConsoleOutput { server_id } => {
+                        ControlMessage::GetConsoleOutput { .. } => {
                             // Access server and send console output
                         }
 

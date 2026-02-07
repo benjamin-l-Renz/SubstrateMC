@@ -1,6 +1,6 @@
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
-    sync::{RwLock, broadcast},
+    sync::RwLock,
 };
 
 use crate::errors::error::ApiError;
@@ -32,7 +32,6 @@ impl PartialEq for ServerState {
 pub struct McServer {
     pub child: ServerState,
     pub history: Arc<RwLock<VecDeque<String>>>,
-    pub tx: Option<broadcast::Sender<String>>,
 }
 
 pub const MAX_LINES: usize = 500;
@@ -42,7 +41,6 @@ impl McServer {
         Self {
             child: ServerState::Stopped,
             history: Arc::new(RwLock::new(VecDeque::with_capacity(MAX_LINES))),
-            tx: None,
         }
     }
 
@@ -116,10 +114,5 @@ impl McServer {
 
     pub async fn clear_history(&mut self) {
         self.history.write().await.clear();
-    }
-
-    /// TODO: get the history
-    pub async fn get_history(&self) {
-        let guard = self.history.read().await;
     }
 }
