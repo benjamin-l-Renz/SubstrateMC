@@ -1,5 +1,5 @@
 [package]
-name = "electron-mc"
+name = "substrate-mc"
 version = "0.1.0"
 edition = "2024"
 

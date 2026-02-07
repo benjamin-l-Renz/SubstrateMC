@@ -1,4 +1,4 @@
-# Contributing to Minecraft Server Interface
+# Contributing to SubstrateMC
 
 Thank you for your interest in contributing! This project is currently in **alpha**, so your feedback and contributions are very welcome.
 
@@ -8,7 +8,7 @@ Thank you for your interest in contributing! This project is currently in **alph
 
 The easiest way to help is by reporting bugs.
 
-- If you find a bug or unexpected behavior, please open an [issue](https://github.com/YOUR_USERNAME/YOUR_REPO/issues).
+- If you find a bug or unexpected behavior, please open an [issue](https://github.com/benjamin-l-Renz/SubstrateMC/issues).
 - Include steps to reproduce, what you expected, and what happened.
 
 ### Feature Requests
