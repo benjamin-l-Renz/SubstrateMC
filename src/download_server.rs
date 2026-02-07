@@ -72,10 +72,7 @@ pub async fn download_server(
 
         #[cfg(feature = "logging")]
         info!("Add server to list");
-        data.write()
-            .await
-            .servers
-            .insert(index as i32, McServer::new());
+        data.write().await.servers.insert(index, McServer::new());
 
         #[cfg(feature = "logging")]
         info!("finding mc config file");

@@ -20,7 +20,7 @@ pub async fn ws_control(
     body: Payload,
     servers: web::Data<SharedServers>,
 ) -> Result<HttpResponse, ApiError> {
-    let (res, _session, mut msg_stream) = actix_ws::handle(&req, body)?;
+    let (res, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
 
     let servers = servers.get_ref().clone();
 
@@ -52,15 +52,16 @@ pub async fn ws_control(
                 let guard = servers.read().await;
 
                 let id = match resp {
-                    ControlMessage::StartServer { server_id } => server_id as i32,
-                    ControlMessage::StopServer { server_id } => server_id as i32,
+                    ControlMessage::StartServer { server_id } => server_id,
+                    ControlMessage::StopServer { server_id } => server_id,
+                    ControlMessage::GetConsoleOutput { server_id } => server_id,
                     ControlMessage::Fail => continue,
                 };
 
                 guard
                     .servers
                     .get(&id)
-                    .and_then(|_s| get_name_by_index(id as u32))
+                    .and_then(|_s| get_name_by_index(id))
                     .map(|name| (id, name))
             };
 
@@ -71,22 +72,33 @@ pub async fn ws_control(
                 if let Some(server) = servers_map.servers.get_mut(&id) {
                     match &resp {
                         ControlMessage::StartServer { .. } => {
-                            // If eula doesnt exist start the server two times
+                            match server.start_server(&name).await {
+                                Ok(_) => {
+                                    server.listen_to_server();
+                                }
+                                Err(e) => {
+                                    #[cfg(feature = "logging")]
+                                    error!("Failed to start server: {:?}", e);
 
-                            if let Err(e) = server.start_server(&name).await {
-                                #[cfg(feature = "logging")]
-                                error!("Failed to start server");
-                                eprintln!("Failed to start server {}: {:?}", name, e);
+                                    eprintln!("Failed to start server {}: {:?}", name, e);
+                                }
                             }
                         }
 
-                        ControlMessage::StopServer { .. } => {
-                            if let Err(e) = server.stop_server().await {
+                        ControlMessage::StopServer { .. } => match server.stop_server().await {
+                            Ok(_) => {
+                                server.clear_history().await;
+                            }
+                            Err(e) => {
                                 #[cfg(feature = "logging")]
-                                error!("Failed to stop server");
+                                error!("Failed to stop server: {:?}", e);
 
                                 eprintln!("Failed to stop server {}: {:?}", name, e);
                             }
+                        },
+
+                        ControlMessage::GetConsoleOutput { server_id } => {
+                            // Access server and send console output
                         }
 
                         ControlMessage::Fail => {}

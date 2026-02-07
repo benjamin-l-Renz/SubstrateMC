@@ -1,5 +1,13 @@
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    sync::{RwLock, broadcast},
+};
+
 use crate::errors::error::ApiError;
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
 #[derive(serde::Deserialize)]
 pub struct ServerConfig {
@@ -7,12 +15,12 @@ pub struct ServerConfig {
 }
 
 pub struct Servers {
-    pub servers: HashMap<i32, McServer>,
+    pub servers: HashMap<u32, McServer>,
 }
 
 pub enum ServerState {
     Stopped,
-    Running(std::process::Child),
+    Running(tokio::process::Child),
 }
 
 impl PartialEq for ServerState {
@@ -23,12 +31,18 @@ impl PartialEq for ServerState {
 
 pub struct McServer {
     pub child: ServerState,
+    pub history: Arc<RwLock<VecDeque<String>>>,
+    pub tx: Option<broadcast::Sender<String>>,
 }
+
+pub const MAX_LINES: usize = 500;
 
 impl McServer {
     pub fn new() -> McServer {
         Self {
             child: ServerState::Stopped,
+            history: Arc::new(RwLock::new(VecDeque::with_capacity(MAX_LINES))),
+            tx: None,
         }
     }
 
@@ -44,7 +58,7 @@ impl McServer {
         let config: ServerConfig =
             serde_json::from_str(&std::fs::read_to_string(jar_dir.join("config.json"))?)?;
 
-        let child = std::process::Command::new(format!(
+        let child = tokio::process::Command::new(format!(
             "../../runtime/java-{}/bin/java",
             config.java_version
         ))
@@ -67,9 +81,45 @@ impl McServer {
         }
 
         if let ServerState::Running(child) = &mut self.child {
-            child.kill()?;
-            child.wait()?;
+            child.kill().await?;
+            child.wait().await?;
         }
         Ok(())
+    }
+
+    pub fn listen_to_server(&mut self) {
+        if let ServerState::Running(child) = &mut self.child {
+            if let Some(stdout) = child.stdout.take() {
+                let history = self.history.clone();
+
+                tokio::spawn(async move {
+                    let mut reader = BufReader::new(stdout);
+                    let mut line = String::with_capacity(512);
+
+                    while reader.read_line(&mut line).await.unwrap() > 0 {
+                        let line_to_store = std::mem::take(&mut line);
+                        {
+                            let mut hist = history.write().await;
+
+                            if hist.len() > MAX_LINES {
+                                hist.pop_back();
+                            }
+                            hist.push_front(line_to_store);
+
+                            line.clear();
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    pub async fn clear_history(&mut self) {
+        self.history.write().await.clear();
+    }
+
+    /// TODO: get the history
+    pub async fn get_history(&self) {
+        let guard = self.history.read().await;
     }
 }
