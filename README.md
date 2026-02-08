@@ -1,6 +1,6 @@
 # SubstrateMC
 
-> **SubstrateMC is under active development and not yet ready for production use.**
+> **SubstrateMC is in an early alpha phase; APIs and features are still evolving.**
 
 **SubstrateMC** is a high performance, lightweight Minecraft server interface written in **Rust**. It tries to expose a modern and clean **HTTP and WebSocket API** that enables you to manage Minecraft servers efficiently - in real time.
 
