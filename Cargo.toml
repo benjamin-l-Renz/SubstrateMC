@@ -10,8 +10,11 @@ logging = [
     "dep:tracing-subscriber",
 ]
 
+[workspace]
+members = ["crates/core"]
+
 [dependencies]
-substrate-core = { path = "crates/core"}
+substrate-core = { path = "crates/core" }
 actix-web = { version = "4.12.1", default-features = false, features = ["macros"] }
 actix-ws = "0.3.1"
 tokio = { version = "1.49.0", features = [

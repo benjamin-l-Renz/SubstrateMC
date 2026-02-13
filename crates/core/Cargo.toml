@@ -3,6 +3,9 @@ name = "substrate-core"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["lib"]
+
 [features]
 default = ["logging"]
 logging = [
@@ -34,6 +37,7 @@ flate2 = { version = "1.1.8", default-features = false, features = [
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 thiserror = "2.0.18"
+bytes = "1.11.1"
 
 [profile.release]
 opt-level = 3

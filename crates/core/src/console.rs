@@ -45,7 +45,7 @@ impl ConsoleActor {
                     // create subscription element with the history and the receiver for the client
                     let subscription = ConsoleSubscription {
                         tx: self.sender.subscribe(),
-                        history: history,
+                        history,
                     };
 
                     // send it to the client

@@ -75,8 +75,8 @@ pub async fn download_server<'a>(
 
     let java_version = force_java_version.unwrap_or(&loader_config.java_version);
 
-    if !check_java(&java_version, &current_dir).await? {
-        download_java(&java_version, current_dir).await?;
+    if !check_java(java_version, &current_dir).await? {
+        download_java(java_version, current_dir).await?;
     }
 
     let server_config = server_dir.join("config.json");

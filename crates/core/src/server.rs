@@ -1,11 +1,7 @@
-use std::collections::VecDeque;
-use std::{path::PathBuf, process::Stdio};
+use std::{path::Path, process::Stdio};
 
-use tokio::process::Child;
-use tokio::sync::{broadcast, mpsc};
-
-use crate::console::{ConsoleActor, ConsoleHandler};
 use crate::errors::api_error::ApiError;
+use tokio::process::Child;
 
 #[derive(Debug)]
 pub enum ServerStatus {
@@ -38,11 +34,11 @@ impl<'a> Server<'a> {
         }
     }
 
-    pub fn start_server(&mut self, current_dir: &PathBuf) -> Result<(), ApiError> {
+    pub fn start_server(&mut self, current_dir: &Path) -> Result<(), ApiError> {
         if self.child != ServerStatus::Stopped {
             return Err(ApiError::InternalServerError);
         }
-        let server_dir = current_dir.join("servers").join(&self.name);
+        let server_dir = current_dir.join("servers").join(self.name);
 
         let process = tokio::process::Command::new(format!(
             "../../runtime/java-{}/bin/java",
@@ -76,7 +72,7 @@ impl<'a> Server<'a> {
         Ok(())
     }
 
-    pub async fn listen_to_server() -> Result<(), ApiError> {
+    /*pub async fn listen_to_server() -> Result<(), ApiError> {
         let (tx, rx) = mpsc::channel(32);
         let (broadcaster, _) = broadcast::channel(100);
 
@@ -93,5 +89,5 @@ impl<'a> Server<'a> {
         let subscription = handler.subscribe().await?;
 
         Ok(())
-    }
+    }*/
 }

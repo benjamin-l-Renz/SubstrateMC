@@ -1,10 +1,12 @@
 mod check_java;
-mod console;
 mod download;
+mod download_java;
 mod errors;
 mod rename;
-mod server;
 mod unpack;
 
-pub mod download_java;
+pub mod console;
 pub mod download_server;
+pub mod remove_server;
+pub mod server;
+pub mod upload_mod;
