@@ -107,7 +107,7 @@ impl McServer {
                     {
                         let mut hist = history.write().await;
 
-                        if hist.len() > MAX_LINES {
+                        if hist.len() >= MAX_LINES {
                             hist.pop_back();
                         }
 
