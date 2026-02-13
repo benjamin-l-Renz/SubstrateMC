@@ -1,16 +1,21 @@
 mod api;
 mod check_java;
+mod delete_server;
 mod download;
 mod download_java;
 mod download_server;
 mod errors;
+mod get_config;
 mod indices;
+mod save_config;
 mod server;
 mod unpack;
 
 use actix_web::{App, HttpServer, web};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
+
+#[cfg(feature = "logging")]
 use tracing::info;
 
 use indices::initialize_index;
@@ -38,6 +43,7 @@ pub async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .service(api::create_server::create_server)
+                    .service(api::remove_server::remove_server)
                     .route("/ws", web::get().to(api::open_socket::ws_control)),
             )
             .app_data(web::Data::new(servers.clone()))

@@ -18,8 +18,10 @@ The current api accepts json or messagepack format which should look like the fo
 
 The action can be one of the following:
 
-- `StartServer`: Starts a new server with the given server id.
-- `StopServer`: Stops the server with the given server id.
+- `start_server`: Starts a new server with the given server id.
+- `stop_server`: Stops the server with the given server id.
+- `get_console_output`: Get the console output of a running server using an id.
+- `send_command`: Send a command to stdin of a running server using an id and a command.
 - `Fail`: Does nothing.
 
 This allows us to implement the API in almost any language:
@@ -35,63 +37,9 @@ socket.addEventListener("open", () => {
 
   socket.send(
     JSON.stringify({
-      action: "StartServer",
+      action: "start_server",
       server_id: 42,
     }),
   );
 });
 ```
-
-</details>
-
-<details>
-<summary>Python</summary>
-
-```python
-import asyncio
-import websockets
-import json
-
-async def main():
-    uri = "ws://localhost:8080/api/ws"
-    async with websockets.connect(uri) as ws:
-        msg = {"action": "StartServer", "server_id": 42}
-        await ws.send(json.dumps(msg))
-        response = await ws.recv()
-        print("Received:", response)
-
-asyncio.run(main())
-```
-
-</details>
-
-<details>
-<summary>Go</summary>
-
-```go
-package main
-
-import (
-    "encoding/json"
-    "log"
-    "github.com/gorilla/websocket"
-)
-
-func main() {
-    c, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/api/ws", nil)
-    if err != nil {
-        log.Fatal("dial:", err)
-    }
-    defer c.Close()
-
-    msg := map[string]interface{}{"action": "StartServer", "server_id": 42}
-    c.WriteJSON(msg)
-
-    var resp map[string]interface{}
-    c.ReadJSON(&resp)
-    log.Println("Received:", resp)
-}
-
-```
-
-</details>

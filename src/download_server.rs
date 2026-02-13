@@ -1,4 +1,5 @@
 use actix_web::web;
+use std::collections::HashMap;
 #[cfg(feature = "logging")]
 use tracing::{error, info, warn};
 
@@ -11,7 +12,6 @@ use crate::{
     indices::{add_entry, write_index_to_file},
     server::McServer,
 };
-use std::collections::HashMap;
 
 #[derive(serde::Deserialize)]
 pub struct MinecraftConfig {
@@ -54,6 +54,7 @@ pub async fn download_server(
             .filter(|entry| entry.path().is_dir())
             .count();
 
+        #[cfg(feature = "logging")]
         info!("Server count: {}", count);
 
         let index: u32 = count as u32;
@@ -104,6 +105,7 @@ pub async fn download_server(
         #[cfg(feature = "logging")]
         info!("Downloading server from {}...", loader_config.url);
 
+        // TODO: Is the file always server.jar ? If not it should be
         let server_jar = server_dir.join("server.jar");
 
         download(

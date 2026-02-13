@@ -22,7 +22,7 @@
 - [x] Start Minecraft Servers
 - [x] Stream Console Output
 - [ ] Mod Loader Support
-- [ ] Delete Servers
+- [x] Delete Servers
 - [ ] Editing Configs
 
 ## Why SubstrateMC

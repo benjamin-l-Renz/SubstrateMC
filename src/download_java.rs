@@ -49,8 +49,9 @@ pub async fn download_java_locally(version: &str) -> Result<(), ApiError> {
     // Archive path where the downloaded file will be stored
     let archive_path = runtime_dir.join(format!("java-{}.tar.gz", java.version));
 
-    // TODO: obsulete because the archive is deleted after unpacking
-    if tokio::fs::try_exists(&archive_path).await? {
+    let java_path = runtime_dir.join(format!("java-{}", java.version));
+
+    if tokio::fs::try_exists(&java_path).await? {
         #[cfg(feature = "logging")]
         info!("Java version {} already downloaded", java.version);
         return Ok(());

@@ -110,7 +110,7 @@ impl McServer {
                         if hist.len() > MAX_LINES {
                             hist.pop_back();
                         }
- 
+
                         hist.push_front(line_to_store.clone());
                     }
 
