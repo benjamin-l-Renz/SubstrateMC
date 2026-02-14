@@ -1,4 +1,4 @@
-use crate::download::download;
+use crate::download::download_helper::download_helper;
 use crate::rename::rename_unpacked_java_folder;
 use crate::unpack::unpack;
 use std::path::PathBuf;
@@ -66,7 +66,7 @@ pub async fn download_java(version: &str, current_dir: PathBuf) -> Result<(), Ap
         return Ok(());
     }
 
-    download(
+    download_helper(
         &config.url,
         archive_path.to_str().ok_or(ApiError::InternalServerError)?,
     )

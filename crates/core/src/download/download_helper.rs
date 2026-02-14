@@ -10,7 +10,7 @@ static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
         .expect("Failed to create HTTP client")
 });
 
-pub async fn download(url: &str, outpath: &str) -> Result<(), ApiError> {
+pub async fn download_helper(url: &str, outpath: &str) -> Result<(), ApiError> {
     if url.is_empty() {
         return Err(ApiError::NotFound("Url cant be empty".to_string()));
     }

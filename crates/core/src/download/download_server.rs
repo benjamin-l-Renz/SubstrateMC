@@ -1,8 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    check_java::check_java, download::download, download_java::download_java,
-    errors::api_error::ApiError,
+    check_java::check_java, download::download_helper::download_helper,
+    download::download_java::download_java, errors::api_error::ApiError,
 };
 
 #[cfg(feature = "logging")]
@@ -67,7 +67,7 @@ pub async fn download_server<'a>(
 
     let server_jar = server_dir.join("server.jar");
 
-    download(
+    download_helper(
         &loader_config.url,
         server_jar.to_str().ok_or(ApiError::InternalServerError)?,
     )
