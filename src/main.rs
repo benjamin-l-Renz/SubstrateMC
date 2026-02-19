@@ -1,15 +1,4 @@
 mod api;
-mod check_java;
-mod delete_server;
-mod download;
-mod download_java;
-mod download_server;
-mod errors;
-mod get_config;
-mod indices;
-mod save_config;
-mod server;
-mod unpack;
 
 use actix_web::{App, HttpServer, web};
 use std::collections::HashMap;
@@ -18,9 +7,9 @@ use tokio::sync::RwLock;
 #[cfg(feature = "logging")]
 use tracing::info;
 
-use indices::initialize_index;
+use substrate_core::server::Server;
 
-use crate::{api::open_socket::SharedServers, server::Servers};
+pub type SharedServers<'a> = RwLock<HashMap<String, Server>>;
 
 #[actix_web::main]
 pub async fn main() -> std::io::Result<()> {
@@ -29,11 +18,13 @@ pub async fn main() -> std::io::Result<()> {
 
     #[cfg(feature = "logging")]
     tracing::info!("initialized tracing subscriber");
-    initialize_index().await.expect("Failed to init index.bin");
+    // initialize_index().await.expect("Failed to init index.bin");
 
-    let servers = SharedServers::new(RwLock::new(Servers {
+    /*let servers = SharedServers::new(RwLock::new(Servers {
         servers: HashMap::new(),
-    }));
+    }));*/
+
+    let shared_servers: SharedServers = RwLock::new(HashMap::new());
 
     #[cfg(feature = "logging")]
     info!("Starting ElectronMC on http://127.0.0.1:8080");
@@ -46,7 +37,7 @@ pub async fn main() -> std::io::Result<()> {
                     .service(api::remove_server::remove_server)
                     .route("/ws", web::get().to(api::open_socket::ws_control)),
             )
-            .app_data(web::Data::new(servers.clone()))
+            .app_data(web::Data::new(shared_servers))
     })
     .bind(("127.0.0.1", 8080))?
     .run()

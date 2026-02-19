@@ -1,9 +1,13 @@
 use std::{path::Path, process::Stdio};
 
-use crate::errors::api_error::ApiError;
-use tokio::process::Child;
+use crate::{console::ConsoleHandler, errors::error::SubstrateError};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Child,
+};
 
 #[derive(Debug)]
+/// State of a Minecraft server.
 pub enum ServerStatus {
     Stopped,
     Running(Child),
@@ -19,14 +23,27 @@ impl PartialEq for ServerStatus {
 }
 
 #[derive(Debug)]
-pub struct Server<'a> {
-    pub name: &'a str,
-    pub java_version: &'a str,
+/// Server wrapper struct containing information about a Minecraft server.
+///
+/// # Fields
+///
+/// * `name` - The name of the server.
+/// * `java_version` - The version of Java used by the server.
+/// * `child` - The status of the server.
+pub struct Server {
+    pub name: String,
+    pub java_version: String,
     pub child: ServerStatus,
 }
 
-impl<'a> Server<'a> {
-    pub fn new(name: &'a str, java_version: &'a str) -> Self {
+impl Server {
+    /// Creates a new instance of the Server struct.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the server.
+    /// * `java_version` - The version of Java that will be used by the server.
+    pub fn new(name: String, java_version: String) -> Self {
         Self {
             name,
             child: ServerStatus::Stopped,
@@ -34,11 +51,20 @@ impl<'a> Server<'a> {
         }
     }
 
-    pub fn start_server(&mut self, current_dir: &Path) -> Result<(), ApiError> {
+    /// Starts the Minecraft server.
+    ///
+    /// Creates a new process to run the Minecraft server. and sets the status to Running with the process child.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_dir` - The current project root directory.
+    pub fn start_server(&mut self, current_dir: &Path) -> Result<(), SubstrateError> {
         if self.child != ServerStatus::Stopped {
-            return Err(ApiError::InternalServerError);
+            return Err(SubstrateError::McServerError {
+                message: "Minecraft server already running".to_string(),
+            });
         }
-        let server_dir = current_dir.join("servers").join(self.name);
+        let server_dir = current_dir.join("servers").join(&self.name);
 
         let process = tokio::process::Command::new(format!(
             "../../runtime/java-{}/bin/java",
@@ -57,9 +83,14 @@ impl<'a> Server<'a> {
         Ok(())
     }
 
-    pub async fn stop_server(&mut self) -> Result<(), ApiError> {
+    /// Stops the Minecraft server.
+    ///
+    /// Kills the server process. and sets the status to Stopped.
+    pub async fn stop_server(&mut self) -> Result<(), SubstrateError> {
         if self.child == ServerStatus::Stopped {
-            return Err(ApiError::InternalServerError);
+            return Err(SubstrateError::McServerError {
+                message: "Minecraft server already stopped".to_string(),
+            });
         }
 
         if let ServerStatus::Running(child) = &mut self.child {
@@ -69,6 +100,25 @@ impl<'a> Server<'a> {
             self.child = ServerStatus::Stopped;
         }
 
+        Ok(())
+    }
+
+    pub async fn listen_to_output(
+        &mut self,
+        handler: ConsoleHandler,
+    ) -> Result<(), SubstrateError> {
+        if let ServerStatus::Running(child) = &mut self.child
+            && let Some(stdout) = child.stdout.take()
+        {
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(stdout);
+                let mut line = String::with_capacity(512);
+                while reader.read_line(&mut line).await.unwrap() > 0 {
+                    let line = std::mem::take(&mut line);
+                    handler.send_line(line).await.unwrap();
+                }
+            });
+        }
         Ok(())
     }
 

@@ -3,7 +3,7 @@ use crate::rename::rename_unpacked_java_folder;
 use crate::unpack::unpack;
 use std::path::PathBuf;
 
-use crate::errors::api_error::ApiError;
+use crate::errors::error::SubstrateError;
 #[cfg(feature = "logging")]
 use tracing::info;
 
@@ -20,7 +20,7 @@ pub struct JavaConfig {
 
 /// The `download_java_locally` function takes a version as a string slice and trys to install Java.
 /// It expects a config file named java.json where the java versions are noted
-pub async fn download_java(version: &str, current_dir: PathBuf) -> Result<(), ApiError> {
+pub async fn download_java(version: &str, current_dir: PathBuf) -> Result<(), SubstrateError> {
     let runtime_dir = current_dir.join("runtime");
     let config_file = current_dir.join("java.json");
 
@@ -31,7 +31,9 @@ pub async fn download_java(version: &str, current_dir: PathBuf) -> Result<(), Ap
     }
 
     if !tokio::fs::try_exists(&config_file).await? {
-        return Err(ApiError::NotFound("Couldnt find java.json".to_string()));
+        return Err(SubstrateError::NotFound {
+            resource: "Could not find config file java.json".to_string(),
+        });
     }
 
     let config_str = tokio::fs::read_to_string(&config_file).await?;
@@ -40,13 +42,14 @@ pub async fn download_java(version: &str, current_dir: PathBuf) -> Result<(), Ap
 
     drop(config_str);
 
-    let config = config
-        .linux
-        .iter()
-        .find(|j| j.version == version)
-        .ok_or(ApiError::NotFound(
-            "Could not find requested java version in java.json".to_string(),
-        ))?;
+    let config =
+        config
+            .linux
+            .iter()
+            .find(|j| j.version == version)
+            .ok_or(SubstrateError::NotFound {
+                resource: "could not find requested java version".to_string(),
+            })?;
 
     // Get the archive path and the target path
     let archive_path = runtime_dir.join(format!("java-{}.tar.gz", config.version));
@@ -68,13 +71,25 @@ pub async fn download_java(version: &str, current_dir: PathBuf) -> Result<(), Ap
 
     download_helper(
         &config.url,
-        archive_path.to_str().ok_or(ApiError::InternalServerError)?,
+        archive_path
+            .to_str()
+            .ok_or(SubstrateError::ConversionError {
+                details: "Failed to convert archive path".to_string(),
+            })?,
     )
     .await?;
 
     unpack(
-        archive_path.to_str().ok_or(ApiError::InternalServerError)?,
-        runtime_dir.to_str().ok_or(ApiError::InternalServerError)?,
+        archive_path
+            .to_str()
+            .ok_or(SubstrateError::ConversionError {
+                details: "Failed to convert archive path".to_string(),
+            })?,
+        runtime_dir
+            .to_str()
+            .ok_or(SubstrateError::ConversionError {
+                details: "Failed to convert runtime directory".to_string(),
+            })?,
     )
     .await?;
 

@@ -2,17 +2,19 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     check_java::check_java, download::download_helper::download_helper,
-    download::download_java::download_java, errors::api_error::ApiError,
+    download::download_java::download_java, errors::error::SubstrateError,
 };
 
 #[cfg(feature = "logging")]
 use tracing::info;
 
+/// Config for the Minecraft server.
 #[derive(serde::Deserialize)]
 pub struct MinecraftConfig {
     pub versions: HashMap<String, HashMap<String, LoaderConfig>>,
 }
 
+/// Config for the Minecraft server.
 #[derive(serde::Deserialize)]
 pub struct LoaderConfig {
     pub url: String,
@@ -20,23 +22,36 @@ pub struct LoaderConfig {
     pub loader: String,
 }
 
-pub async fn download_server<'a>(
-    name: &'a str,
-    loader: &'a str,
-    version: &'a str,
+/// Download a Minecraft server with the specified configuration.
+///
+/// # Arguments
+/// * `name` - The name of the server.
+/// * `loader` - The loader to use.
+/// * `version` - The version of the server.
+/// * `agree_eula` - Whether to agree to the EULA.
+/// * `force_java_version` - The Java version to force.
+/// * `current_dir` - The current project directory.
+/// * `mc_config` - The Minecraft configuration file loaded as MinecraftConfig struct.
+pub async fn download_server(
+    name: &str,
+    loader: &str,
+    version: &str,
     agree_eula: bool,
-    force_java_version: Option<&'a str>,
+    force_java_version: Option<String>,
     current_dir: PathBuf,
-) -> Result<&'a str, ApiError> {
+    mc_config: MinecraftConfig,
+) -> Result<(String, String), SubstrateError> {
     if !agree_eula {
-        return Err(ApiError::InternalServerError);
+        return Err(SubstrateError::Eula);
     }
 
     let servers_path = current_dir.join("servers");
     let server_dir = servers_path.join(name);
 
     if tokio::fs::try_exists(&server_dir).await? {
-        return Err(ApiError::InternalServerError);
+        return Err(SubstrateError::AlreadyExists {
+            resource: "Server with name already exists".to_string(),
+        });
     }
 
     tokio::fs::create_dir_all(&server_dir).await?;
@@ -45,38 +60,28 @@ pub async fn download_server<'a>(
 
     tokio::fs::write(eula_path, "eula=true").await?;
 
-    let config_dir = current_dir.join("minecraft.json");
-
-    if !tokio::fs::try_exists(&config_dir).await? {
-        return Err(ApiError::NotFound(
-            "Could not find the minecraft.json".to_string(),
-        ));
-    }
-
-    let config_data = tokio::fs::read_to_string(config_dir).await?;
-
-    let mc_config: MinecraftConfig = serde_json::from_str(&config_data)?;
-
     let loader_config = mc_config
         .versions
         .get(version)
         .and_then(|loaders| loaders.get(loader))
-        .ok_or(ApiError::NotFound(
-            "Could not find right minecraft version".to_string(),
-        ))?;
+        .ok_or(SubstrateError::NotFound {
+            resource: "Could not find right minecraft version".to_string(),
+        })?;
 
     let server_jar = server_dir.join("server.jar");
 
     download_helper(
         &loader_config.url,
-        server_jar.to_str().ok_or(ApiError::InternalServerError)?,
+        server_jar.to_str().ok_or(SubstrateError::ConversionError {
+            details: "Failed to convert server jar path".to_string(),
+        })?,
     )
     .await?;
 
-    let java_version = force_java_version.unwrap_or(&loader_config.java_version);
+    let java_version = force_java_version.unwrap_or_else(|| loader_config.java_version.clone());
 
-    if !check_java(java_version, &current_dir).await? {
-        download_java(java_version, current_dir).await?;
+    if !check_java(&java_version, &current_dir).await? {
+        download_java(&java_version, current_dir).await?;
     }
 
     let server_config = server_dir.join("config.json");
@@ -92,5 +97,5 @@ pub async fn download_server<'a>(
 
     tokio::fs::write(server_config, serde_json::to_string_pretty(&config)?).await?;
 
-    Ok(name)
+    Ok((name.to_string(), java_version))
 }

@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use tokio::io::{AsyncWriteExt, BufWriter};
 
-use crate::errors::api_error::ApiError;
+use crate::errors::error::SubstrateError;
 
 static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
     reqwest::Client::builder()
@@ -10,15 +10,24 @@ static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
         .expect("Failed to create HTTP client")
 });
 
-pub async fn download_helper(url: &str, outpath: &str) -> Result<(), ApiError> {
+/// Download a file from the given URL to the specified output path.
+///
+/// # Arguments
+/// * `url` - The URL of the file to download.
+/// * `outpath` - The path to save the downloaded file.
+pub async fn download_helper(url: &str, outpath: &str) -> Result<(), SubstrateError> {
     if url.is_empty() {
-        return Err(ApiError::NotFound("Url cant be empty".to_string()));
+        return Err(SubstrateError::NotFound {
+            resource: "Url cant be empty".to_string(),
+        });
     }
 
     let mut resp = HTTP_CLIENT.get(url).send().await?;
 
     if !resp.status().is_success() {
-        return Err(ApiError::InternalServerError);
+        return Err(SubstrateError::HttpStatus {
+            body: resp.text().await?,
+        });
     }
 
     let file = tokio::fs::File::create(outpath).await?;

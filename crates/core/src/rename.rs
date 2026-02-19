@@ -1,15 +1,26 @@
-use crate::errors::api_error::ApiError;
+use crate::errors::error::SubstrateError;
 #[cfg(feature = "logging")]
 use tracing::info;
 
+/// Renames the unpacked Java folder to the target name.
+///
+/// Tries to rename the unpacked java folder by searching for a folder that looks like a JDK archive.
+///
+/// # Arguments
+///
+/// * `target_path` - The target path to rename the folder to.
+/// * `target_name` - The target name to rename the folder to.
+/// * `runtime_dir` - The runtime directory to search for the folder.
 pub async fn rename_unpacked_java_folder(
     target_path: &std::path::PathBuf,
     target_name: &str,
     runtime_dir: &std::path::PathBuf,
-) -> Result<(), ApiError> {
+) -> Result<(), SubstrateError> {
     // Return early if target already exists
     if tokio::fs::try_exists(target_path).await? {
-        return Err(ApiError::InternalServerError);
+        return Err(SubstrateError::AlreadyExists {
+            resource: "Target path already exists".to_string(),
+        });
     }
 
     let mut entries = tokio::fs::read_dir(runtime_dir).await?;

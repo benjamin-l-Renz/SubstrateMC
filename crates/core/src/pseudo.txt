@@ -1,0 +1,12 @@
+WebSocket {
+
+    Server;
+
+    Server.Start {
+        Server.ReadOut(channel)
+    }
+
+    GetOutput {
+        subscription streaming
+    }
+}

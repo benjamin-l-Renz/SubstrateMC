@@ -2,20 +2,31 @@ use std::collections::VecDeque;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 
-use crate::errors::api_error::ApiError;
+use crate::errors::error::SubstrateError;
 
-const MAX_LINES: u16 = 500;
+const MAX_LINES: usize = 500;
 
+/// Subscription payload sent to the client
+///
+/// # Fields
+/// * `tx` - The receiver for the client.
+/// * `history` - The history of the console.
 pub struct ConsoleSubscription {
     pub tx: broadcast::Receiver<String>,
     pub history: Vec<String>,
 }
 
+/// Message sent to the console actor
+///
+/// # Variants
+/// * `SendLine(String)` - Send a line to the console.
+/// * `Subscribe(oneshot::Sender<ConsoleSubscription>)` - Subscribe to the console.
 pub enum ConsoleMessage {
     SendLine(String),
     Subscribe(oneshot::Sender<ConsoleSubscription>),
 }
 
+/// Console actor which handles console messages and subscriptions.
 pub struct ConsoleActor {
     pub receiver: mpsc::Receiver<ConsoleMessage>,
     pub history: VecDeque<String>,
@@ -23,11 +34,12 @@ pub struct ConsoleActor {
 }
 
 impl ConsoleActor {
+    /// Run the console actor.
     pub async fn run(mut self) {
         while let Some(message) = self.receiver.recv().await {
             match message {
                 ConsoleMessage::SendLine(line) => {
-                    if self.history.len() as u16 >= MAX_LINES {
+                    if self.history.len() >= MAX_LINES {
                         self.history.pop_front();
                     }
 
@@ -56,12 +68,14 @@ impl ConsoleActor {
     }
 }
 
+/// Handler and helper for sending messages to the console actor.
 pub struct ConsoleHandler {
     pub sender: mpsc::Sender<ConsoleMessage>,
 }
 
 impl ConsoleHandler {
-    pub async fn send_line(&self, line: String) -> Result<(), ApiError> {
+    /// Sends a line to the console actor.
+    pub async fn send_line(&self, line: String) -> Result<(), SubstrateError> {
         // Send an line as message
         if self
             .sender
@@ -69,13 +83,14 @@ impl ConsoleHandler {
             .await
             .is_err()
         {
-            return Err(ApiError::ChannelError);
+            return Err(SubstrateError::ChannelSend);
         }
 
         Ok(())
     }
 
-    pub async fn subscribe(&self) -> Result<ConsoleSubscription, ApiError> {
+    /// Subscribes to the console actor and returns a subscription with the console history and an live receiver.
+    pub async fn subscribe(&self) -> Result<ConsoleSubscription, SubstrateError> {
         // Create an channel
         let (tx, rx) = oneshot::channel();
 
@@ -86,7 +101,7 @@ impl ConsoleHandler {
             .await
             .is_err()
         {
-            return Err(ApiError::ChannelError);
+            return Err(SubstrateError::ChannelSend);
         }
 
         // return the receiver
