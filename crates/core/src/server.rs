@@ -1,9 +1,16 @@
-use std::{path::Path, process::Stdio};
+use std::{collections::VecDeque, path::Path, process::Stdio};
 
-use crate::{console::ConsoleHandler, errors::error::SubstrateError};
+use crate::{
+    console::{ConsoleActor, ConsoleHandler, ConsoleMessage},
+    errors::error::SubstrateError,
+};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Child,
+    sync::{
+        broadcast::{self, Sender},
+        mpsc::{self, Receiver},
+    },
 };
 
 #[derive(Debug)]
@@ -22,18 +29,17 @@ impl PartialEq for ServerStatus {
     }
 }
 
-#[derive(Debug)]
 /// Server wrapper struct containing information about a Minecraft server.
 ///
 /// # Fields
 ///
-/// * `name` - The name of the server.
 /// * `java_version` - The version of Java used by the server.
 /// * `child` - The status of the server.
 pub struct Server {
-    pub name: String,
-    pub java_version: String,
-    pub child: ServerStatus,
+    java_version: String,
+    child: ServerStatus,
+    actor: Option<ConsoleActor>,
+    tx: Option<tokio::sync::mpsc::Sender<ConsoleMessage>>,
 }
 
 impl Server {
@@ -41,13 +47,13 @@ impl Server {
     ///
     /// # Arguments
     ///
-    /// * `name` - The name of the server.
     /// * `java_version` - The version of Java that will be used by the server.
-    pub fn new(name: String, java_version: String) -> Self {
+    pub fn new(java_version: String) -> Self {
         Self {
-            name,
             child: ServerStatus::Stopped,
             java_version,
+            actor: None,
+            tx: None,
         }
     }
 
@@ -58,13 +64,18 @@ impl Server {
     /// # Arguments
     ///
     /// * `current_dir` - The current project root directory.
-    pub fn start_server(&mut self, current_dir: &Path) -> Result<(), SubstrateError> {
+    /// * `name` - Server name
+    pub async fn start_server(
+        &mut self,
+        current_dir: &Path,
+        name: &str,
+    ) -> Result<(), SubstrateError> {
         if self.child != ServerStatus::Stopped {
             return Err(SubstrateError::McServerError {
                 message: "Minecraft server already running".to_string(),
             });
         }
-        let server_dir = current_dir.join("servers").join(&self.name);
+        let server_dir = current_dir.join("servers").join(name);
 
         let process = tokio::process::Command::new(format!(
             "../../runtime/java-{}/bin/java",
@@ -79,6 +90,23 @@ impl Server {
         .spawn()?;
 
         self.child = ServerStatus::Running(process);
+
+        let (tx, rx) = tokio::sync::mpsc::channel(32);
+        let (broadcaster, _) = tokio::sync::broadcast::channel(100);
+
+        self.actor = Some(ConsoleActor {
+            receiver: rx,
+            history: VecDeque::new(),
+            sender: broadcaster,
+        });
+
+        if let Some(actor) = self.actor.take() {
+            tokio::spawn(actor.run());
+        } else {
+            println!("Could not start actor");
+        }
+
+        self.tx = Some(tx);
 
         Ok(())
     }
@@ -105,8 +133,9 @@ impl Server {
 
     pub async fn listen_to_output(
         &mut self,
-        handler: ConsoleHandler,
+        /*handler: ConsoleHandler,*/
     ) -> Result<(), SubstrateError> {
+        // Cloning only once (the tx and then implement internal tx logic no console handler)
         if let ServerStatus::Running(child) = &mut self.child
             && let Some(stdout) = child.stdout.take()
         {
@@ -115,7 +144,7 @@ impl Server {
                 let mut line = String::with_capacity(512);
                 while reader.read_line(&mut line).await.unwrap() > 0 {
                     let line = std::mem::take(&mut line);
-                    handler.send_line(line).await.unwrap();
+                    self.handler.send_line(line).await.unwrap();
                 }
             });
         }

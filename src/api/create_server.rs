@@ -1,17 +1,11 @@
-/*use crate::{
-    api::open_socket::SharedServers, download_server::download_server, errors::error::ApiError,
-};*/
-
 use substrate_core::{
-    download::download_server::{MinecraftConfig, download_server},
-    errors::error::SubstrateError,
-    server::Server,
+    download::download_server::download_server, errors::error::SubstrateError, server::Server,
 };
 
 use actix_web::{post, web};
 
 #[cfg(feature = "logging")]
-use tracing::error;
+use tracing::{error, trace};
 
 use crate::SharedServers;
 
@@ -28,27 +22,20 @@ struct ServerCreateRequest {
 /// API endpoint to create a new Minecraft server.
 /// Expects a JSON payload with server details and returns the server index in MessagePack format.
 #[post("/create_server")]
-pub async fn create_server<'a>(
+pub async fn create_server(
     data: web::Json<ServerCreateRequest>,
-    servers: web::Data<SharedServers<'a>>,
+    servers: web::Data<SharedServers>,
 ) -> Result<impl actix_web::Responder, SubstrateError> {
+    #[cfg(feature = "logging")]
+    trace!("Moving data into inner");
     let data = data.into_inner();
-    let servers = servers.into_inner();
 
+    #[cfg(feature = "logging")]
+    trace!("Get current dir");
     let current_dir = std::env::current_dir()?;
 
-    let config_dir = current_dir.join("minecraft.json");
-
-    if !tokio::fs::try_exists(&config_dir).await? {
-        return Err(SubstrateError::NotFound {
-            resource: "Could not find the minecraft.json".to_string(),
-        });
-    }
-
-    let config_data = tokio::fs::File::open(config_dir).await?;
-
-    let mc_config: MinecraftConfig = serde_json::from_reader(config_data.into_std().await)?;
-
+    #[cfg(feature = "logging")]
+    trace!("Downloading server...");
     let (name, java_version) = download_server(
         &data.name,
         &data.loader,
@@ -56,10 +43,11 @@ pub async fn create_server<'a>(
         data.agree_eula,
         data.forced_java_version,
         current_dir,
-        mc_config,
     )
     .await?;
 
+    #[cfg(feature = "logging")]
+    trace!("Move name to bytes");
     let name_bytes = match rmp_serde::to_vec(&name) {
         Ok(bytes) => bytes,
         Err(err) => {
@@ -71,10 +59,17 @@ pub async fn create_server<'a>(
         }
     };
 
-    servers
-        .write()
-        .await
-        .insert(name.clone(), Server::new(name, java_version));
+    #[cfg(feature = "logging")]
+    trace!("Creating write guard");
+    let mut guard = servers.write().await;
+
+    #[cfg(feature = "logging")]
+    trace!("Insert server");
+    guard.insert(name, Server::new(java_version));
+
+    #[cfg(feature = "logging")]
+    trace!("Dropping write guard");
+    drop(guard);
 
     Ok(actix_web::HttpResponse::Ok()
         .content_type("application/msgpack")

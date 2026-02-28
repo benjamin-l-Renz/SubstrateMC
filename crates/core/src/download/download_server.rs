@@ -6,20 +6,20 @@ use crate::{
 };
 
 #[cfg(feature = "logging")]
-use tracing::info;
+use tracing::{error, info, trace, warn};
 
 /// Config for the Minecraft server.
 #[derive(serde::Deserialize)]
-pub struct MinecraftConfig {
-    pub versions: HashMap<String, HashMap<String, LoaderConfig>>,
+struct MinecraftConfig {
+    versions: HashMap<String, HashMap<String, LoaderConfig>>,
 }
 
 /// Config for the Minecraft server.
 #[derive(serde::Deserialize)]
-pub struct LoaderConfig {
-    pub url: String,
-    pub java_version: String,
-    pub loader: String,
+struct LoaderConfig {
+    url: String,
+    java_version: String,
+    loader: String,
 }
 
 /// Download a Minecraft server with the specified configuration.
@@ -31,7 +31,6 @@ pub struct LoaderConfig {
 /// * `agree_eula` - Whether to agree to the EULA.
 /// * `force_java_version` - The Java version to force.
 /// * `current_dir` - The current project directory.
-/// * `mc_config` - The Minecraft configuration file loaded as MinecraftConfig struct.
 pub async fn download_server(
     name: &str,
     loader: &str,
@@ -39,63 +38,95 @@ pub async fn download_server(
     agree_eula: bool,
     force_java_version: Option<String>,
     current_dir: PathBuf,
-    mc_config: MinecraftConfig,
 ) -> Result<(String, String), SubstrateError> {
     if !agree_eula {
+        #[cfg(feature = "logging")]
+        {
+            warn!("Skipping creation process due to eula is not value true");
+            warn!("If you want to create a server you need to agree to the eula");
+        }
         return Err(SubstrateError::Eula);
     }
 
-    let servers_path = current_dir.join("servers");
-    let server_dir = servers_path.join(name);
+    #[cfg(feature = "logging")]
+    trace!("Joining servers dir");
+    let servers_directory = &current_dir.join("servers");
 
-    if tokio::fs::try_exists(&server_dir).await? {
+    if !tokio::fs::try_exists(&servers_directory).await? {
+        #[cfg(feature = "logging")]
+        error!("servers directory does not exist");
         return Err(SubstrateError::AlreadyExists {
-            resource: "Server with name already exists".to_string(),
+            resource: "Servers directory was not found in current_dir".to_string(),
         });
     }
 
-    tokio::fs::create_dir_all(&server_dir).await?;
+    #[cfg(feature = "logging")]
+    trace!("Joining server dir");
+    let server_dir = &servers_directory.join(name);
 
-    let eula_path = server_dir.join("eula.txt");
+    let config = {
+        #[cfg(feature = "logging")]
+        trace!("Loading minecraft.json configuration");
+        let config_dir = &current_dir.join("minecraft.json");
 
-    tokio::fs::write(eula_path, "eula=true").await?;
+        let config_str = tokio::fs::read_to_string(&config_dir).await?;
 
-    let loader_config = mc_config
-        .versions
-        .get(version)
-        .and_then(|loaders| loaders.get(loader))
-        .ok_or(SubstrateError::NotFound {
-            resource: "Could not find right minecraft version".to_string(),
-        })?;
+        let mut config: MinecraftConfig = serde_json::from_str(&config_str)?;
+
+        #[cfg(feature = "logging")]
+        trace!("Searching minecraft version");
+        let mut inner = match config.versions.remove(version) {
+            Some(v) => {
+                #[cfg(feature = "logging")]
+                trace!("Found right minecraft version");
+                v
+            }
+            None => {
+                #[cfg(feature = "logging")]
+                error!("Failed to find version");
+                return Err(SubstrateError::NotFound {
+                    resource: "Could not find minecraft version in minecraft.json".to_string(),
+                });
+            }
+        };
+
+        #[cfg(feature = "logging")]
+        trace!("Searching for loader");
+        match inner.remove(loader) {
+            Some(v) => {
+                #[cfg(feature = "logging")]
+                trace!("Found minecraft loader");
+                v
+            }
+            None => {
+                #[cfg(feature = "logging")]
+                error!("Failed to find loader");
+                return Err(SubstrateError::NotFound {
+                    resource: "Could not find minecraft loader in minecraft.json".to_string(),
+                });
+            }
+        }
+    };
+
+    #[cfg(feature = "logging")]
+    trace!("Getting java version");
+    let java_version = force_java_version.unwrap_or(config.java_version);
+
+    if !check_java(&java_version, &current_dir).await? {
+        #[cfg(feature = "logging")]
+        info!("Java version not found installing...");
+        download_java(&java_version, &current_dir).await?;
+    }
 
     let server_jar = server_dir.join("server.jar");
 
-    download_helper(
-        &loader_config.url,
-        server_jar.to_str().ok_or(SubstrateError::ConversionError {
-            details: "Failed to convert server jar path".to_string(),
-        })?,
-    )
-    .await?;
-
-    let java_version = force_java_version.unwrap_or_else(|| loader_config.java_version.clone());
-
-    if !check_java(&java_version, &current_dir).await? {
-        download_java(&java_version, current_dir).await?;
-    }
-
-    let server_config = server_dir.join("config.json");
+    #[cfg(feature = "logging")]
+    info!("Downloading server.jar");
+    download_helper(&config.url, &server_jar).await?;
 
     #[cfg(feature = "logging")]
-    info!("Creating server config file");
-
-    let config = serde_json::json!({
-        "minecraft_version": version,
-        "loader": loader,
-        "java_version": java_version,
-    });
-
-    tokio::fs::write(server_config, serde_json::to_string_pretty(&config)?).await?;
+    trace!("Dropping server jar path");
+    drop(server_jar);
 
     Ok((name.to_string(), java_version))
 }

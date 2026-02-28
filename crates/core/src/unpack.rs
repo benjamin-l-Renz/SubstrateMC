@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::errors::error::SubstrateError;
 
 /// unpackes a given archive
@@ -6,7 +8,7 @@ use crate::errors::error::SubstrateError;
 ///
 /// * `archive_path` - The path to the archive.
 /// * `extract_path` - The path to extract the archive to.
-pub async fn unpack(archive_path: &str, extract_path: &str) -> Result<(), SubstrateError> {
+pub async fn unpack(archive_path: &Path, extract_path: &Path) -> Result<(), SubstrateError> {
     #[cfg(target_os = "windows")]
     {
         println!("Unpacking is not supported on Windows yet.");
@@ -26,7 +28,7 @@ pub async fn unpack(archive_path: &str, extract_path: &str) -> Result<(), Substr
 /// * `archive_path` - The path to the tar archive.
 /// * `extract_path` - The path to extract the archive to.
 #[cfg(not(target_os = "windows"))]
-fn untar(archive_path: &str, extract_path: &str) -> Result<(), SubstrateError> {
+fn untar(archive_path: &Path, extract_path: &Path) -> Result<(), SubstrateError> {
     let file = std::fs::File::open(archive_path)?;
 
     let decompresser = flate2::read::GzDecoder::new(file);

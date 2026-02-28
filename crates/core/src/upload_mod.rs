@@ -5,7 +5,6 @@ use bytes::Bytes;
 use tokio::io::AsyncWriteExt;
 #[cfg(feature = "logging")]
 use tracing::warn;
-
 /// Represents a mod file containing the mod data and the output path.
 pub struct File {
     bytes: Bytes,

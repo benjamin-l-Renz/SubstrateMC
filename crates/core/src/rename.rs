@@ -1,6 +1,6 @@
 use crate::errors::error::SubstrateError;
 #[cfg(feature = "logging")]
-use tracing::info;
+use tracing::{error, info};
 
 /// Renames the unpacked Java folder to the target name.
 ///
@@ -18,6 +18,8 @@ pub async fn rename_unpacked_java_folder(
 ) -> Result<(), SubstrateError> {
     // Return early if target already exists
     if tokio::fs::try_exists(target_path).await? {
+        #[cfg(feature = "logging")]
+        error!("Target path already exists");
         return Err(SubstrateError::AlreadyExists {
             resource: "Target path already exists".to_string(),
         });

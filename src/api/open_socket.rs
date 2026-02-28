@@ -1,4 +1,4 @@
-use crate::{
+/*use crate::{
     api::{control_msg::ControlMessage, server_event::ServerEvent},
     indices::get_name_by_index,
     server::Servers,
@@ -188,46 +188,4 @@ pub async fn ws_control(
     });
 
     Ok(res)
-}
-
-pub async fn socket_control(
-    req: HttpRequest,
-    body: Payload,
-    servers: web::Data<SharedServers>,
-) -> Result<HttpResponse, ApiError> {
-    let (res, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
-
-    actix_web::rt::spawn(async move {
-        while let Some(Ok(msg)) = msg_stream.next().await {
-            let resp = match msg {
-                Message::Text(t) => {
-                    #[cfg(feature = "logging")]
-                    info!("Received text message");
-
-                    serde_json::from_str::<ControlMessage>(&t).unwrap_or(ControlMessage::Fail)
-                }
-
-                Message::Binary(b) => {
-                    #[cfg(feature = "logging")]
-                    info!("Received binary message");
-
-                    rmp_serde::from_slice::<ControlMessage>(&b).unwrap_or(ControlMessage::Fail)
-                }
-
-                Message::Close(_) => break,
-
-                _ => continue,
-            };
-
-            let mut servers_map = servers.write().await;
-
-            if let Some(server) = servers_map.servers.get_mut(&id) {
-                match &resp {
-                    _ => {}
-                }
-            }
-        }
-    });
-
-    Ok(res)
-}
+}*/
