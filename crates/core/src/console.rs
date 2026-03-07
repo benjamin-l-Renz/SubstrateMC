@@ -69,6 +69,7 @@ impl ConsoleActor {
 }
 
 /// Handler and helper for sending messages to the console actor.
+#[derive(Clone)]
 pub struct ConsoleHandler {
     pub sender: mpsc::Sender<ConsoleMessage>,
 }

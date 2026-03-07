@@ -1,13 +1,16 @@
 mod api;
 
-use actix_web::{App, HttpServer, web};
 use std::collections::HashMap;
-use tokio::sync::RwLock;
 
-#[cfg(feature = "logging")]
-use tracing::info;
+use actix_web::{
+    App, HttpServer,
+    web::{self},
+};
 
 use substrate_core::server::Server;
+use tokio::sync::RwLock;
+#[cfg(feature = "logging")]
+use tracing::info;
 
 pub type SharedServers = web::Data<RwLock<HashMap<String, Server>>>;
 
@@ -16,6 +19,8 @@ pub async fn main() -> std::io::Result<()> {
     #[cfg(feature = "logging")]
     tracing::info!("initialized tracing subscriber");
     tracing_subscriber::fmt::init();
+
+    // loading the servers into the list on startup or loading them in on starting or interacting
 
     let shared_servers: SharedServers = web::Data::new(RwLock::new(HashMap::new()));
 

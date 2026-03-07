@@ -24,7 +24,7 @@ struct ServerCreateRequest {
 #[post("/create_server")]
 pub async fn create_server(
     data: web::Json<ServerCreateRequest>,
-    servers: web::Data<SharedServers>,
+    servers: SharedServers,
 ) -> Result<impl actix_web::Responder, SubstrateError> {
     #[cfg(feature = "logging")]
     trace!("Moving data into inner");
@@ -66,10 +66,6 @@ pub async fn create_server(
     #[cfg(feature = "logging")]
     trace!("Insert server");
     guard.insert(name, Server::new(java_version));
-
-    #[cfg(feature = "logging")]
-    trace!("Dropping write guard");
-    drop(guard);
 
     Ok(actix_web::HttpResponse::Ok()
         .content_type("application/msgpack")
