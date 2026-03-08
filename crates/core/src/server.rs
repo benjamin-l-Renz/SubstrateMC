@@ -34,17 +34,11 @@ impl Server {
     pub fn start_server(&mut self, name: &str, current_dir: &Path) -> Result<(), SubstrateError> {
         let server_dir = current_dir.join("servers").join(name);
 
-        let process = tokio::process::Command::new(format!(
-            "../../runtime/java-{}/bin/java",
-            self.java_version
-        ))
-        .arg("-jar")
-        .arg("server.jar")
-        .arg("nogui")
-        .current_dir(server_dir)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()?;
+        let process = tokio::process::Command::new("run.sh")
+            .current_dir(server_dir)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
 
         self.child = ServerStatus::Running(process);
 

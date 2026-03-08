@@ -1,5 +1,8 @@
+use rmp_serde::{from_slice, to_vec};
 use substrate_core::{
-    download::download_server::download_server, errors::error::SubstrateError, server::Server,
+    download::download_server::{JavaFlags, download_server},
+    errors::error::SubstrateError,
+    server::Server,
 };
 
 use actix_web::{post, web};
@@ -9,6 +12,17 @@ use tracing::{error, trace};
 
 use crate::SharedServers;
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct CreateServerConfig {
+    pub servers: Vec<McServerConfig>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct McServerConfig {
+    pub name: String,
+    pub java_version: String,
+}
+
 #[derive(serde::Deserialize)]
 /// Represents the JSON payload for creating a new Minecraft server.
 struct ServerCreateRequest {
@@ -17,6 +31,7 @@ struct ServerCreateRequest {
     loader: String,
     forced_java_version: Option<String>,
     agree_eula: bool,
+    flags: JavaFlags,
 }
 
 /// API endpoint to create a new Minecraft server.
@@ -42,7 +57,8 @@ pub async fn create_server(
         &data.minecraft_version,
         data.agree_eula,
         data.forced_java_version,
-        current_dir,
+        &current_dir,
+        data.flags,
     )
     .await?;
 
@@ -59,13 +75,36 @@ pub async fn create_server(
         }
     };
 
-    #[cfg(feature = "logging")]
-    trace!("Creating write guard");
-    let mut guard = servers.write().await;
+    {
+        #[cfg(feature = "logging")]
+        trace!("Creating write guard");
+        let mut guard = servers.write().await;
 
-    #[cfg(feature = "logging")]
-    trace!("Insert server");
-    guard.insert(name, Server::new(java_version));
+        #[cfg(feature = "logging")]
+        trace!("Insert server");
+        guard.insert(name.clone(), Server::new(java_version.clone()));
+    }
+
+    let servers_file = &current_dir.join("servers").join("servers.bin");
+
+    if !servers_file.exists() {
+        let config = CreateServerConfig {
+            servers: vec![McServerConfig { name, java_version }],
+        };
+
+        let bytes = to_vec(&config).unwrap();
+        tokio::fs::write(servers_file, bytes).await?;
+    } else {
+        let bytes = tokio::fs::read(servers_file).await?;
+
+        let mut decoded: CreateServerConfig = from_slice(&bytes).unwrap();
+
+        decoded.servers.push(McServerConfig { name, java_version });
+
+        let bytes = to_vec(&decoded).unwrap();
+
+        tokio::fs::write(servers_file, bytes).await?;
+    }
 
     Ok(actix_web::HttpResponse::Ok()
         .content_type("application/msgpack")
