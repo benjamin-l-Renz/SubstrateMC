@@ -6,7 +6,7 @@ use actix_ws::Message;
 use futures_util::StreamExt;
 use substrate_core::errors::error::SubstrateError;
 
-use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::{mpsc::Sender, oneshot};
 #[cfg(feature = "logging")]
 use tracing::info;
 
@@ -20,8 +20,8 @@ pub async fn socket_control(
     body: Payload,
     /*servers: SharedServers,*/
     sender: web::Data<Sender<HandlerCommand>>,
-) -> Result<(), SubstrateError> {
-    let (_, session, mut msg_stream) = match actix_ws::handle(&req, body) {
+) -> Result<actix_web::HttpResponse, SubstrateError> {
+    let (response, session, mut msg_stream) = match actix_ws::handle(&req, body) {
         Ok(v) => v,
         Err(_) => {
             return Err(SubstrateError::SocketError {
@@ -78,7 +78,7 @@ pub async fn socket_control(
                 }
 
                 ControlMessage::GetConsoleOutput { .. } => {
-                    let (tx, mut rx) = mpsc::channel(1);
+                    let (tx, rx) = oneshot::channel();
                     sender
                         .send(HandlerCommand::GetOutput {
                             name: name.to_string(),
@@ -87,7 +87,7 @@ pub async fn socket_control(
                         .await
                         .unwrap();
 
-                    let mut output_subscription = rx.recv().await.unwrap();
+                    let mut output_subscription = rx.await.unwrap();
 
                     let mut session = session.clone();
 
@@ -145,5 +145,5 @@ pub async fn socket_control(
         }
     });
 
-    Ok(())
+    Ok(response)
 }

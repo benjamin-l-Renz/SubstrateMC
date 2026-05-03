@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::errors::error::SubstrateError;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub enum JavaFlags {
     Aikars,
     Normal,

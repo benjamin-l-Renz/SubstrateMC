@@ -26,7 +26,7 @@ async fn async_get_output_test() {
         version: "1.21.11",
     };
 
-    let (name, version) = substrate_core::download::server::download_server::download_server(
+    let (name, _) = substrate_core::download::server::download_server::download_server(
         config,
         true,
         None,
@@ -45,7 +45,7 @@ async fn async_get_output_test() {
 
     assert!(java_installation.exists());
 
-    let mut server = Server::new(version);
+    let mut server = Server::new();
 
     server
         .start_server(&name, dir.path())
@@ -56,4 +56,6 @@ async fn async_get_output_test() {
     let subscription = server.subscribe().await.unwrap();
 
     assert!(!subscription.history.is_empty());
+
+    println!("{:?}", subscription.history);
 }

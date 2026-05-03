@@ -4,4 +4,5 @@ pub mod download;
 pub mod errors;
 mod rename;
 pub mod server;
+pub mod server_handler;
 mod unpack;

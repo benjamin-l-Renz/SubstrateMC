@@ -24,7 +24,7 @@ async fn async_test_run_server() {
         version: "1.21.11",
     };
 
-    let (name, version) = substrate_core::download::server::download_server::download_server(
+    let (name, _) = substrate_core::download::server::download_server::download_server(
         config,
         true,
         None,
@@ -43,7 +43,7 @@ async fn async_test_run_server() {
 
     assert!(java_installation.exists());
 
-    let mut server = Server::new(version);
+    let mut server = Server::new();
 
     server
         .start_server(&name, dir.path())

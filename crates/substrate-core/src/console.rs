@@ -38,6 +38,8 @@ impl ConsoleActor {
     pub async fn run(mut self) {
         while let Some(message) = self.receiver.recv().await {
             match message {
+                // TODO: Send line should not be used for sending messages to server
+                // it should be used for sending the stdout output
                 ConsoleMessage::SendLine(line) => {
                     if self.history.len() >= MAX_LINES {
                         self.history.pop_front();
@@ -76,6 +78,7 @@ pub struct ConsoleHandler {
 
 impl ConsoleHandler {
     /// Sends a line to the console actor.
+    /// This should be called from the thread listening to console output.
     pub async fn send_line(&self, line: String) -> Result<(), SubstrateError> {
         // Send an line as message
         if self

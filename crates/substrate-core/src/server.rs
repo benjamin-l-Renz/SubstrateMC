@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, path::Path, process::Stdio};
 
 use tokio::{
-    io::{AsyncBufReadExt, BufReader},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Child,
     sync::{broadcast, mpsc},
 };
@@ -19,15 +19,15 @@ pub enum ServerStatus {
 pub struct Server {
     pub child: ServerStatus,
     pub handler: Option<ConsoleHandler>,
-    pub java_version: String,
+    // pub java_version: String,
 }
 
 impl Server {
-    pub fn new(java_version: String) -> Self {
+    pub fn new(/*java_version: String*/) -> Self {
         Self {
             child: ServerStatus::Stopped,
             handler: None,
-            java_version,
+            // java_version,
         }
     }
 
@@ -112,6 +112,21 @@ impl Server {
         }
         Err(SubstrateError::NotFound {
             resource: "Could not find handler".to_string(),
+        })
+    }
+
+    pub async fn send_command(&mut self, command: String) -> Result<(), SubstrateError> {
+        if let ServerStatus::Running(child) = &mut self.child {
+            child
+                .stdin
+                .as_mut()
+                .unwrap()
+                .write_all(command.as_bytes())
+                .await?;
+            return Ok(());
+        }
+        Err(SubstrateError::NotFound {
+            resource: "Server is not running".to_string(),
         })
     }
 }

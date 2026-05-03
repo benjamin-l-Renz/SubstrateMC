@@ -1,17 +1,19 @@
 use std::collections::HashMap;
 
+// TODO: Use Dashmap crate instaed of actor pattern so we can have quick lookups with minimal deadlocks in generall
+
 use substrate_core::{
     download::server::{
         download_server::{ServerConfig, download_server},
         installer::{create_script::JavaFlags, loader::vanilla::VanillaInstaller},
     },
-    server::Server,
+    server::{Server, ServerStatus},
 };
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::api::create_server::{CreateServerConfig, McServerConfig};
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct ServerCreateRequest {
     pub name: String,
     pub minecraft_version: String,
@@ -21,11 +23,13 @@ pub struct ServerCreateRequest {
     pub flags: JavaFlags,
 }
 
+#[derive(Debug)]
 pub struct OutputSubscription {
     pub history: Vec<String>,
     pub rx: broadcast::Receiver<String>,
 }
 
+#[derive(Debug)]
 pub enum HandlerCommand {
     StartServer {
         name: String,
@@ -35,7 +39,7 @@ pub enum HandlerCommand {
     },
     GetOutput {
         name: String,
-        sender: mpsc::Sender<OutputSubscription>,
+        sender: oneshot::Sender<OutputSubscription>,
     },
     SendCommand {
         name: String,
@@ -43,6 +47,10 @@ pub enum HandlerCommand {
     },
     CreateServer {
         request: ServerCreateRequest,
+    },
+
+    ViewServers {
+        sender: oneshot::Sender<Vec<(String, bool)>>,
     },
 }
 
@@ -63,9 +71,14 @@ impl ServerHandler {
             let config: CreateServerConfig = postcard::from_bytes(&bytes).unwrap();
 
             for server_config in config.servers {
-                self.servers
-                    .insert(server_config.name, Server::new(server_config.java_version));
+                self.servers.insert(server_config.name, Server::new());
             }
+        } else {
+            let config = CreateServerConfig {
+                servers: Vec::new(),
+            };
+            let bytes = postcard::to_allocvec(&config).unwrap();
+            tokio::fs::write(&config_file, bytes).await.unwrap();
         }
 
         while let Some(msg) = self.rx.recv().await {
@@ -91,19 +104,12 @@ impl ServerHandler {
                         history: subscription.history,
                         rx: subscription.tx,
                     };
-                    sender.send(output).await.unwrap();
+                    sender.send(output).unwrap();
                 }
 
                 HandlerCommand::SendCommand { name, command } => {
                     let server = self.servers.get_mut(&name);
-                    server
-                        .unwrap()
-                        .handler
-                        .as_mut()
-                        .unwrap()
-                        .send_line(command)
-                        .await
-                        .unwrap();
+                    server.unwrap().send_command(command).await.unwrap();
                 }
 
                 HandlerCommand::CreateServer { request } => {
@@ -130,10 +136,9 @@ impl ServerHandler {
                     .unwrap();
 
                     // java version is only needed for startup but we dont really need it after that only for the run file meaning we maybe could theoretically remove one clone when correctly structured
-                    //
+                    // Semms like java version isnt really needed after startup so i removed it we will see if it breaks anything
 
-                    self.servers
-                        .insert(name.clone(), Server::new(java_version.clone()));
+                    self.servers.insert(name.clone(), Server::new());
 
                     if !config_file.exists() {
                         let config = CreateServerConfig {
@@ -154,6 +159,19 @@ impl ServerHandler {
 
                         tokio::fs::write(&config_file, bytes).await.unwrap();
                     }
+                }
+
+                HandlerCommand::ViewServers { sender } => {
+                    let result = self
+                        .servers
+                        .iter()
+                        .map(|(name, server)| {
+                            let running = matches!(server.child, ServerStatus::Running(_));
+                            (name.clone(), running)
+                        })
+                        .collect::<Vec<(String, bool)>>();
+
+                    let _ = sender.send(result);
                 }
             }
         }

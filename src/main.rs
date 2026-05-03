@@ -7,12 +7,9 @@ use actix_web::{
     self, App, HttpServer,
     web::{self},
 };
-use substrate_core::server::Server;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::mpsc;
 
 use crate::server_handler::ServerHandler;
-
-pub type SharedServers = web::Data<RwLock<HashMap<String, Server>>>;
 
 #[actix_web::main]
 pub async fn main() -> std::io::Result<()> {
@@ -33,11 +30,9 @@ pub async fn main() -> std::io::Result<()> {
         App::new()
             .service(
                 web::scope("/api")
-                    /*.service(api::create_server::create_server)
-                    .service(api::remove_server::remove_server)
-                    .route("/ws", web::get().to(api::socket_control::socket_control)),*/
                     .route("/ws", web::get().to(api::socket_control::socket_control))
-                    .service(api::create_server::create_server),
+                    .service(api::create_server::create_server)
+                    .service(api::view_servers::view_servers),
             )
             .app_data(web::Data::new(tx.clone()))
     })
