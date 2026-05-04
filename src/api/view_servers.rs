@@ -5,7 +5,7 @@ use actix_web::{HttpResponse, get, web};
 
 use crate::server_handler::HandlerCommand;
 
-#[get("/view-servers")]
+#[get("/view_servers")]
 pub async fn view_servers(
     sender: web::Data<tokio::sync::mpsc::Sender<HandlerCommand>>,
 ) -> HttpResponse {

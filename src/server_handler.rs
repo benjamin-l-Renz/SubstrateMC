@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 // TODO: Use Dashmap crate instaed of actor pattern so we can have quick lookups with minimal deadlocks in generall
 
@@ -51,6 +51,10 @@ pub enum HandlerCommand {
 
     ViewServers {
         sender: oneshot::Sender<Vec<(String, bool)>>,
+    },
+
+    DeleteServer {
+        name: String,
     },
 }
 
@@ -172,6 +176,19 @@ impl ServerHandler {
                         .collect::<Vec<(String, bool)>>();
 
                     let _ = sender.send(result);
+                }
+
+                HandlerCommand::DeleteServer { name } => {
+                    if let Some(_) = self.servers.remove(&name) {
+                        let server_dir = current_dir.join("servers").join(&name);
+                        if let Err(e) = tokio::fs::remove_dir_all(&server_dir).await {
+                            eprintln!(
+                                "Failed to delete server dir {}: {}",
+                                server_dir.display(),
+                                e
+                            );
+                        }
+                    }
                 }
             }
         }
