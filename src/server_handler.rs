@@ -179,7 +179,7 @@ impl ServerHandler {
                 }
 
                 HandlerCommand::DeleteServer { name } => {
-                    if let Some(_) = self.servers.remove(&name) {
+                    if self.servers.remove(&name).is_some() {
                         let server_dir = current_dir.join("servers").join(&name);
                         if let Err(e) = tokio::fs::remove_dir_all(&server_dir).await {
                             eprintln!(

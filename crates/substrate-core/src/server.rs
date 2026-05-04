@@ -19,15 +19,13 @@ pub enum ServerStatus {
 pub struct Server {
     pub child: ServerStatus,
     pub handler: Option<ConsoleHandler>,
-    // pub java_version: String,
 }
 
 impl Server {
-    pub fn new(/*java_version: String*/) -> Self {
+    pub fn new() -> Self {
         Self {
             child: ServerStatus::Stopped,
             handler: None,
-            // java_version,
         }
     }
 
@@ -128,5 +126,11 @@ impl Server {
         Err(SubstrateError::NotFound {
             resource: "Server is not running".to_string(),
         })
+    }
+}
+
+impl Default for Server {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -3,10 +3,7 @@ mod server_handler;
 
 use std::collections::HashMap;
 
-use actix_web::{
-    self, App, HttpServer,
-    web::{self},
-};
+use actix_web::{self, App, HttpServer, web};
 use tokio::sync::mpsc;
 
 use crate::server_handler::ServerHandler;
@@ -32,7 +29,8 @@ pub async fn main() -> std::io::Result<()> {
                 web::scope("/api")
                     .route("/ws", web::get().to(api::socket_control::socket_control))
                     .service(api::create_server::create_server)
-                    .service(api::view_servers::view_servers),
+                    .service(api::view_servers::view_servers)
+                    .service(api::delete_server::delete_server),
             )
             .app_data(web::Data::new(tx.clone()))
     })
